@@ -2,6 +2,7 @@ const Venue = require('../models/Venue');
 const UserPreference = require('../models/UserPreference');
 const mbxClient = require('@mapbox/mapbox-sdk');
 const mbxTilequery = require('@mapbox/mapbox-sdk/services/tilequery');
+const mongoose = require('mongoose');
 
 const baseClient = mbxClient({ accessToken: process.env.MAPBOX_ACCESS_TOKEN });
 const tilequeryService = mbxTilequery(baseClient);
@@ -73,8 +74,6 @@ exports.getNearbyVenues = async (req, res) => {
             }
         }
 
-        const allFeatures = new Set(); // Use Set to avoid duplicates
-        
         // Make requests for each search point in parallel
         const searchPromises = searchPoints.map(async point => {
             try {
@@ -97,59 +96,63 @@ exports.getNearbyVenues = async (req, res) => {
 
         const featureArrays = await Promise.all(searchPromises);
         
-        // Combine all features, removing duplicates
-        featureArrays.forEach(features => {
-            features.forEach(feature => {
-                if (!allFeatures.has(feature.id)) {
-                    allFeatures.add(feature.id);
-                }
-            });
-        });
-
-        // Convert Set back to array and get full feature objects
-        const uniqueFeatures = Array.from(allFeatures);
-        console.log('Raw Mapbox response:', {
-            totalFeatures: uniqueFeatures.length,
-            searchPoints: searchPoints.length
-        });
-
-        // Filter and transform venues
-        const allVenues = new Map();
-        const maxVenuesPerCategory = Math.min(Math.ceil(radiusInMeters / 1000) * 2, 50); // Scale with radius, max 50 per category
-        const categoryCounts = {};
-        
-        // First pass: collect all venues
-        const potentialVenues = featureArrays
-            .flat()
-            .filter(feature => isRelevantVenue(feature))
-            .map(feature => transformMapboxFeature(feature))
-            .filter(venue => venue !== null)
-            .sort((a, b) => (a.distance || 0) - (b.distance || 0)); // Sort by distance
-
-        // Second pass: balance categories
-        potentialVenues.forEach(venue => {
-            const category = venue.category;
-            categoryCounts[category] = categoryCounts[category] || 0;
-
-            if (categoryCounts[category] < maxVenuesPerCategory) {
-                if (!allVenues.has(venue._id)) {
-                    allVenues.set(venue._id, venue);
-                    categoryCounts[category]++;
-                }
+        // Combine all features, removing duplicates based on name and coordinates
+        const uniqueFeatures = new Map();
+        featureArrays.flat().forEach(feature => {
+            const key = `${feature.properties.name}-${feature.geometry.coordinates[0]}-${feature.geometry.coordinates[1]}`;
+            if (!uniqueFeatures.has(key) && isRelevantVenue(feature)) {
+                uniqueFeatures.set(key, feature);
             }
         });
 
-        const venues = Array.from(allVenues.values());
-        console.log('Category distribution:', categoryCounts);
-        console.log(`Found ${venues.length} unique venues`);
-        
-        // Generate ratings and price ranges
-        venues.forEach(venue => {
-            venue.rating = (Math.random() * 2 + 3).toFixed(1);
-            venue.priceRange = generateRandomPriceRange();
+        console.log('Raw Mapbox response:', {
+            totalFeatures: uniqueFeatures.size,
+            searchPoints: searchPoints.length
         });
+
+        // Transform features to venues
+        const venues = [];
+        for (const feature of uniqueFeatures.values()) {
+            const venue = transformMapboxFeature(feature);
+            if (venue) {
+                venues.push(venue);
+            }
+        }
+
+        // Sort venues by distance
+        venues.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        console.log(`Found ${venues.length} unique venues`);
+
+        // Save venues to database and collect their IDs
+        const venuesWithIds = [];
+        if (venues.length > 0) {
+            try {
+                for (const venue of venues) {
+                    // Try to find existing venue
+                    let existingVenue = await Venue.findOne({
+                        'location.coordinates': venue.location.coordinates,
+                        name: venue.name
+                    });
+
+                    if (existingVenue) {
+                        // Update existing venue
+                        Object.assign(existingVenue, venue);
+                        await existingVenue.save();
+                        venuesWithIds.push(existingVenue);
+                    } else {
+                        // Create new venue
+                        const newVenue = new Venue(venue);
+                        await newVenue.save();
+                        venuesWithIds.push(newVenue);
+                    }
+                }
+                console.log(`Successfully processed ${venuesWithIds.length} venues`);
+            } catch (error) {
+                console.error('Error saving venues:', error);
+            }
+        }
         
-        res.json(venues);
+        res.json(venuesWithIds);
     } catch (error) {
         console.error('Mapbox API Error:', error);
         console.error('Error stack:', error.stack);
@@ -275,8 +278,11 @@ function transformMapboxFeature(feature) {
     if (category === 'entertainment') description += ' 🎭';
     if (category === 'sports') description += ' 🏃';
     
+    // Generate random rating and price range
+    const rating = (Math.random() * 2 + 3).toFixed(1);
+    const priceRange = generateRandomPriceRange();
+    
     return {
-        _id: feature.id || `venue_${Math.random().toString(36).substr(2, 9)}`,
         name: properties.name || 'Unnamed Venue',
         description,
         location: {
@@ -290,8 +296,8 @@ function transformMapboxFeature(feature) {
             zipCode: ''
         },
         category,
-        rating: '4.0', // Default rating
-        priceRange: '$$', // Default price range
+        rating,
+        priceRange,
         distance: properties.tilequery?.distance // Distance in meters from search point
     };
 }
@@ -299,73 +305,34 @@ function transformMapboxFeature(feature) {
 // Helper function to determine venue category
 function determineCategory(feature) {
     const properties = feature.properties || {};
-    const name = (properties.name || '').toLowerCase();
-    const maki = (properties.maki || '').toLowerCase();
-    const class_ = (properties.class || '').toLowerCase();
     const type = (properties.type || '').toLowerCase();
     const category = (properties.category || '').toLowerCase();
 
-    // Shopping venues
-    if (
-        maki === 'shopping' || maki === 'mall' || class_ === 'retail' ||
-        ['mall', 'shopping', 'market', 'store', 'shop', 'retail', 'outlet'].some(k => 
-            name.includes(k) || type.includes(k) || category.includes(k)
-        )
-    ) return 'shopping';
+    // Direct mappings
+    if (type.includes('restaurant') || type.includes('food') || category.includes('food')) return 'restaurant';
+    if (type.includes('park') || category.includes('park')) return 'park';
+    if (type.includes('arcade') || type.includes('game')) return 'arcade';
+    if (type.includes('cinema') || type.includes('movie') || type.includes('theater')) return 'movie_theater';
+    if (type.includes('cafe') || type.includes('coffee')) return 'cafe';
+    if (type.includes('mall') || type.includes('shop') || type.includes('store')) return 'shopping';
+    if (type.includes('gym') || type.includes('fitness')) return 'fitness';
+    if (type.includes('hospital') || type.includes('clinic') || type.includes('medical')) return 'healthcare';
+    if (type.includes('school') || type.includes('college') || type.includes('university')) return 'education';
+    if (type.includes('salon') || type.includes('spa')) return 'beauty';
+    if (type.includes('hotel') || type.includes('lodging')) return 'hotel';
+    if (type.includes('sports') || type.includes('stadium')) return 'sports';
+    if (type.includes('service')) return 'services';
 
     // Entertainment venues
-    if (
-        maki === 'cinema' || maki === 'theatre' || maki === 'amusement_park' ||
-        ['cinema', 'theatre', 'movie', 'entertainment', 'game', 'play', 'arcade'].some(k => 
-            name.includes(k) || type.includes(k) || category.includes(k)
-        )
-    ) return 'entertainment';
+    const entertainmentKeywords = [
+        'entertainment', 'club', 'bar', 'pub', 'lounge', 'karaoke',
+        'bowling', 'theatre', 'concert', 'music', 'dance', 'amusement'
+    ];
+    if (entertainmentKeywords.some(keyword => type.includes(keyword) || category.includes(keyword))) {
+        return 'entertainment';
+    }
 
-    // Sports venues
-    if (
-        maki === 'stadium' || maki === 'gym' || maki === 'sports' ||
-        ['sport', 'gym', 'fitness', 'yoga', 'stadium', 'arena'].some(k => 
-            name.includes(k) || type.includes(k) || category.includes(k)
-        )
-    ) return 'sports';
-
-    // Cultural venues
-    if (
-        maki === 'museum' || maki === 'monument' ||
-        ['museum', 'gallery', 'art', 'exhibition', 'cultural', 'heritage'].some(k => 
-            name.includes(k) || type.includes(k) || category.includes(k)
-        )
-    ) return 'culture';
-
-    // Food venues
-    if (name.includes('veg') || name.includes('vegetarian')) 
-        return 'vegetarian';
-    if (
-        name.includes('cafe') || name.includes('coffee') || 
-        type === 'Cafe' || maki === 'cafe'
-    ) return 'cafe';
-    if (
-        class_ === 'food_and_drink' || maki === 'restaurant' ||
-        ['restaurant', 'dining', 'bistro', 'eatery'].some(k => 
-            name.includes(k) || type.includes(k) || category.includes(k)
-        )
-    ) return 'restaurant';
-    if (maki === 'fast-food') 
-        return 'fast_food';
-    if (
-        maki === 'bar' || 
-        ['bar', 'pub', 'club', 'lounge'].some(k => 
-            name.includes(k) || type.includes(k) || category.includes(k)
-        )
-    ) return 'nightlife';
-
-    // Services & Others
-    if (
-        ['salon', 'spa', 'wellness', 'clinic', 'hospital', 'medical'].some(k => 
-            name.includes(k) || type.includes(k) || category.includes(k)
-        )
-    ) return 'services';
-
+    // Default to 'other' if no specific category matches
     return 'other';
 }
 
@@ -392,7 +359,7 @@ exports.getRecommendedVenues = async (req, res) => {
             location: {
                 $near: {
                     $geometry: {
-                        type: 'Point',
+                        type: "Point",
                         coordinates: [parseFloat(longitude), parseFloat(latitude)]
                     },
                     $maxDistance: parseInt(radius)

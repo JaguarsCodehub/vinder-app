@@ -33,10 +33,12 @@ app.get('/', (req, res) => {
 const authRoutes = require('../routes/auth');
 const preferencesRoutes = require('../routes/preferences');
 const venuesRoutes = require('../routes/venues');
+const bookingRoutes = require('../routes/bookings');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/preferences', preferencesRoutes); // Updated mount path
 app.use('/api/venues', venuesRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

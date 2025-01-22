@@ -29,7 +29,23 @@ const venueSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
-        enum: ['restaurant', 'park', 'arcade', 'movie_theater', 'cafe', 'shopping', 'entertainment']
+        enum: [
+            'restaurant',
+            'park',
+            'arcade',
+            'movie_theater',
+            'cafe',
+            'shopping',
+            'entertainment',
+            'services',
+            'sports',
+            'education',
+            'healthcare',
+            'fitness',
+            'beauty',
+            'hotel',
+            'other'
+        ]
     },
     images: [{
         type: String, // URLs to venue images

@@ -4,6 +4,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import VenueCard from '../../components/VenueCard';
 
 interface Venue {
     _id: string;
@@ -37,12 +38,21 @@ const VenueMapScreen: React.FC = () => {
 
     const categories = [
         { id: 'all', label: 'All', icon: '🔍' },
-        { id: 'cafe', label: 'Cafes', icon: '☕' },
-        { id: 'entertainment', label: 'Garden', icon: '🌳' },
-        { id: 'culture', label: 'Culture', icon: '🏢' },
-        { id: 'services', label: 'Services', icon: '🥼' },
         { id: 'restaurant', label: 'Restaurants', icon: '🍽️' },
-        { id: 'other', label: 'Others', icon: '🔹' }
+        { id: 'cafe', label: 'Cafes', icon: '☕' },
+        { id: 'entertainment', label: 'Entertainment', icon: '🎭' },
+        { id: 'shopping', label: 'Shopping', icon: '🛍️' },
+        { id: 'sports', label: 'Sports', icon: '🏃' },
+        { id: 'park', label: 'Parks', icon: '🌳' },
+        { id: 'movie_theater', label: 'Movies', icon: '🎬' },
+        { id: 'arcade', label: 'Arcade', icon: '🎮' },
+        { id: 'services', label: 'Services', icon: '🛠️' },
+        { id: 'education', label: 'Education', icon: '📚' },
+        { id: 'healthcare', label: 'Healthcare', icon: '🏥' },
+        { id: 'fitness', label: 'Fitness', icon: '💪' },
+        { id: 'beauty', label: 'Beauty', icon: '💅' },
+        { id: 'hotel', label: 'Hotels', icon: '🏨' },
+        { id: 'other', label: 'Others', icon: '📍' }
     ];
 
     const filteredVenues = selectedCategory === 'all' || !selectedCategory
@@ -80,22 +90,34 @@ const VenueMapScreen: React.FC = () => {
         switch (category.toLowerCase()) {
             case 'restaurant':
                 return '🍽️';
-            case 'shopping':
-                return '🛍️';
-            case 'entertainment':
-                return '🌳';
-            case 'sports':
-                return '🏃';
             case 'cafe':
                 return '☕';
-            case 'nightlife':
-                return '🌙';
-            case 'culture':
-                return '🏢';
+            case 'entertainment':
+                return '🎭';
+            case 'shopping':
+                return '🛍️';
+            case 'sports':
+                return '🏃';
+            case 'park':
+                return '🌳';
+            case 'movie_theater':
+                return '🎬';
+            case 'arcade':
+                return '🎮';
             case 'services':
-                return '🥼';
+                return '🛠️';
+            case 'education':
+                return '📚';
+            case 'healthcare':
+                return '🏥';
+            case 'fitness':
+                return '💪';
+            case 'beauty':
+                return '💅';
+            case 'hotel':
+                return '🏨';
             default:
-                return '🔹'; 
+                return '📍';
         }
     };
 
@@ -182,8 +204,8 @@ const VenueMapScreen: React.FC = () => {
                                     setFocusedMarkerId(venue._id);
                                 }}
                             >
-                                <View style={[styles.markerContainer, focusedMarkerId === venue._id && styles.focusedMarker]}>
-                                    <Text style={[styles.markerText, { fontSize: 18 }]}>
+                                <View style={[styles.markerContainer, focusedMarkerId === venue._id && styles.selectedMarker]}>
+                                    <Text style={[styles.markerText, { fontSize: 16 }]}>
                                         {getCategoryIcon(venue.category)}
                                     </Text>
                                 </View>
@@ -205,42 +227,33 @@ const VenueMapScreen: React.FC = () => {
 
             {selectedVenue && (
                 <View style={styles.venueCard}>
-                    <View style={styles.cardHeader}>
-                        <View style={styles.headerLeft}>
-                            <Text style={styles.venueName}>{selectedVenue.name}</Text>
-                            <Text style={styles.venueRating}>
-                                {selectedVenue.rating} ★ • {selectedVenue.category} • {formatDistance(selectedVenue.distance)}
-                            </Text>
-                            <Text style={styles.venueStatus}>
-                                Open 24 hours
-                            </Text>
-                        </View>
-                        <TouchableOpacity 
-                            style={styles.closeButton}
-                            onPress={() => setSelectedVenue(null)}
-                        >
-                            <Ionicons name="close" size={24} color={colors.text} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.buttonContainer}>
-                        <TouchableOpacity style={styles.actionButton}>
-                            <Ionicons name="navigate" size={24} color={colors.primary} />
-                            <Text style={styles.buttonText}>Directions</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton}>
-                            <Ionicons name="navigate-circle" size={24} color={colors.primary} />
-                            <Text style={styles.buttonText}>Start</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton}>
-                            <Ionicons name="call" size={24} color={colors.primary} />
-                            <Text style={styles.buttonText}>Call</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton}>
-                            <Ionicons name="share" size={24} color={colors.primary} />
-                            <Text style={styles.buttonText}>Share</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <VenueCard
+                        venue={{
+                            ...selectedVenue,
+                            images: [], // Add venue images when available
+                            rating: parseFloat(selectedVenue.rating || '0'),
+                            priceRange: selectedVenue.priceRange || 'Not specified',
+                            category: selectedVenue.category || 'Not specified',
+                        }}
+                        onNavigate={() => {
+                            // Add navigation logic
+                            console.log('Navigate to:', selectedVenue.name);
+                        }}
+                        onShare={() => {
+                            // Add share logic
+                            console.log('Share venue:', selectedVenue.name);
+                        }}
+                        onFavorite={() => {
+                            // Add favorite logic
+                            console.log('Favorite venue:', selectedVenue.name);
+                        }}
+                    />
+                    <TouchableOpacity 
+                        style={styles.closeButton}
+                        onPress={() => setSelectedVenue(null)}
+                    >
+                        <Ionicons name="close" size={24} color={colors.text} />
+                    </TouchableOpacity>
                 </View>
             )}
         </View>
@@ -416,180 +429,96 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     map: {
-        width: '100%',
-        height: '100%',
-    },
-    markerContainer: {
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        borderWidth: 1.5,
-        borderColor: '#ddd',
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
-    },
-    currentLocationMarker: {
-        borderColor: '#2196F3',  // Blue border for current location
-        borderWidth: 2,
-    },
-    focusedMarker: {
-        backgroundColor: '#e3f2fd',  // Light blue background
-        borderColor: '#1976d2',      // Blue border
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.35,
-        shadowRadius: 5.84,
-        elevation: 8,
-    },
-    markerText: {
-        fontSize: 24,
+        flex: 1,
     },
     venueCard: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        padding: 16,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: -3,
-        },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        elevation: 8,
-        ...Platform.select({
-            ios: {
-                backdropFilter: 'blur(10px)',
-            },
-            android: {
-                // Android doesn't support backdropFilter
-                backgroundColor: 'rgba(255, 255, 255, 0.98)',
-            },
-        }),
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-        paddingHorizontal: 4,
-    },
-    headerLeft: {
-        flex: 1,
-    },
-    venueName: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 4,
-        color: '#1a1a1a',
-    },
-    venueRating: {
-        fontSize: 15,
-        color: '#666',
-        marginBottom: 4,
-    },
-    venueStatus: {
-        fontSize: 14,
-        color: '#4CAF50',
-        fontWeight: '600',
+        backgroundColor: 'transparent',
+        padding: 8,
     },
     closeButton: {
-        padding: 8,
-        marginTop: -4,
-        marginRight: -4,
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingTop: 12,
-        paddingBottom: 4,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        marginHorizontal: -16,
-        paddingHorizontal: 16,
-    },
-    actionButton: {
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 12,
-        backgroundColor: 'rgba(25, 118, 210, 0.08)',
-        minWidth: 72,
-    },
-    buttonText: {
-        marginTop: 6,
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#1976d2',
-    },
-    themeToggle: {  
         position: 'absolute',
-        top: 120,
-        right: 10,
-        backgroundColor: 'gray',
-        borderRadius: 20,
-        padding: 8,
-        elevation: 4,
+        top: 16,
+        right: 16,
+        backgroundColor: 'white',
+        borderRadius: 15,
+        padding: 4,
+        elevation: 5,
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
+    },
+    markerContainer: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 3,
+        borderWidth: 1.5,
+        borderColor: '#4CAF50',
+    },
+    selectedMarker: {
+        borderColor: '#2196F3',
+        backgroundColor: '#E3F2FD',
+    },
+    currentLocationMarker: {
+        borderColor: '#F44336',
+    },
+    markerText: {
+        fontSize: 16,
     },
     filterContainer: {
         position: 'absolute',
-        top: 60,
+        top: Platform.OS === 'ios' ? 60 : 40,
         left: 0,
         right: 0,
         zIndex: 1,
-        backgroundColor: 'transparent',
     },
     filterContent: {
-        paddingHorizontal: 10,
+        paddingHorizontal: 16,
     },
     filterButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
         backgroundColor: 'white',
+        borderRadius: 20,
         paddingHorizontal: 16,
         paddingVertical: 8,
-        borderRadius: 20,
-        marginHorizontal: 4,
+        marginRight: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        elevation: 2,
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.41,
     },
     filterButtonActive: {
-        backgroundColor: '#1976d2',
+        backgroundColor: '#4CAF50',
     },
     filterIcon: {
+        marginRight: 4,
         fontSize: 16,
-        marginRight: 6,
     },
     filterText: {
+        color: '#333',
         fontSize: 14,
-        color: '#666',
-        fontWeight: '500',
     },
     filterTextActive: {
         color: 'white',
+    },
+    themeToggle: {
+        position: 'absolute',
+        top: Platform.OS === 'ios' ? 120 : 100,
+        right: 16,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 8,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.41,
     },
 });
 
