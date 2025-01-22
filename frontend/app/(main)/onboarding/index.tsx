@@ -44,9 +44,15 @@ const steps = [
   },
 ];
 
+type Preferences = {
+  locationPreference: string;
+  foodPreference: string;
+  budgetRange: string;
+};
+
 export default function OnboardingScreen() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [preferences, setPreferences] = useState({
+  const [preferences, setPreferences] = useState<Preferences>({
     locationPreference: '',
     foodPreference: '',
     budgetRange: '',
@@ -94,7 +100,7 @@ export default function OnboardingScreen() {
     
     const newPreferences = {
       ...preferences,
-      [currentKey]: option.value,
+      [currentKey as keyof Preferences]: option.value,
     };
     setPreferences(newPreferences);
 
@@ -104,7 +110,7 @@ export default function OnboardingScreen() {
     } else {
       // Check if all preferences are filled before submitting
       const allPreferencesFilled = ['locationPreference', 'foodPreference', 'budgetRange']
-        .every(key => newPreferences[key] !== '');
+        .every(key => newPreferences[key as keyof Preferences] !== '');
       
       if (allPreferencesFilled) {
         submitPreferences();
@@ -117,7 +123,7 @@ export default function OnboardingScreen() {
   const submitPreferences = async () => {
     // Validate all preferences are filled
     const allPreferencesFilled = ['locationPreference', 'foodPreference', 'budgetRange']
-      .every(key => preferences[key] !== '');
+      .every(key => preferences[key as keyof Preferences] !== '');
     
     if (!allPreferencesFilled) {
       setError('Please fill out all preferences before submitting');
@@ -185,14 +191,14 @@ export default function OnboardingScreen() {
             key={option.id}
             style={[
               styles.option,
-              preferences[currentStepData.key] === option.value && styles.selectedOption
+              preferences[currentStepData.key as keyof Preferences] === option.value && styles.selectedOption
             ]}
             onPress={() => handleSelect(option)}
             disabled={submitting}
           >
             <Text style={[
               styles.optionText,
-              preferences[currentStepData.key] === option.value && styles.selectedOptionText
+              preferences[currentStepData.key as keyof Preferences] === option.value && styles.selectedOptionText
             ]}>
               {option.label}
             </Text>
