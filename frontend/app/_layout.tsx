@@ -15,10 +15,7 @@ export default function Layout() {
         <Stack.Screen 
           name="(main)" 
           options={{ 
-            headerTitle: "Home",
-            headerStyle: {
-              backgroundColor: '#f5f5f5',
-            },
+            headerShown: false
           }} 
         />
         

@@ -88,21 +88,27 @@ export default function BookingForm({ venue, onClose }: BookingFormProps) {
 
             // Format date as YYYY-MM-DD
             const formattedDate = date.toISOString().split('T')[0];
+            const bookingData = {
+                venueId: venue._id,
+                date: formattedDate,
+                timeSlot: selectedSlot,
+                price: getBasePrice()
+            };
+            console.log('Sending booking request:', bookingData);
 
             const response = await axios.post(
                 `${API_URL}/api/bookings`,
-                {
-                    venueId: venue._id,
-                    date: formattedDate,
-                    timeSlot: selectedSlot,
-                    price: getBasePrice()
-                },
+                bookingData,
                 {
                     headers: {
-                        Authorization: `Bearer ${token}`
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json'
                     }
                 }
             );
+
+            // Close the booking form modal
+            onClose();
 
             // Navigate to payment page
             router.push({

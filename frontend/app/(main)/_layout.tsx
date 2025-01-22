@@ -13,15 +13,21 @@ export default function MainLayout() {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const hasPreferences = await AsyncStorage.getItem('userPreferences');
+      const currentPath = router.pathname;
 
-      if (!token) {
-        router.replace('/(auth)/login');
-      } else if (!hasPreferences) {
-        router.replace('/(main)/onboarding');
+      // Only redirect if we're on the index page
+      if (currentPath === '/(main)/index') {
+        if (!token) {
+          router.replace('/(auth)/login');
+        } else if (!hasPreferences) {
+          router.replace('/(main)/onboarding');
+        }
       }
     } catch (error) {
       console.error('Error checking auth:', error);
-      router.replace('/(auth)/login');
+      if (router.pathname === '/(main)/index') {
+        router.replace('/(auth)/login');
+      }
     }
   };
 
@@ -38,7 +44,7 @@ export default function MainLayout() {
       <Stack.Screen
         name="index"
         options={{
-          headerTitle: 'Home',
+          headerTitle: 'Explore Venues',
         }}
       />
       <Stack.Screen
@@ -49,10 +55,25 @@ export default function MainLayout() {
         }}
       />
       <Stack.Screen
-        name="screens/VenueMapScreen"
+        name="payment"
         options={{
-          headerTitle: 'Explore Venues',
-          headerBackVisible: false,
+          headerTitle: 'Payment',
+          presentation: 'modal',
+          headerBackVisible: true,
+        }}
+      />
+      <Stack.Screen
+        name="my-bookings"
+        options={{
+          headerTitle: 'My Bookings',
+          headerBackVisible: true,
+        }}
+      />
+      <Stack.Screen
+        name="booking-confirmation"
+        options={{
+          headerTitle: 'Booking Confirmed',
+          headerBackVisible: false
         }}
       />
     </Stack>

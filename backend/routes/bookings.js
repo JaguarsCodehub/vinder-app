@@ -92,6 +92,20 @@ router.get('/venues/:venueId/time-slots', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
     try {
         const { venueId, date, timeSlot, price } = req.body;
+        console.log('Creating booking with data:', {
+            venueId,
+            date,
+            timeSlot,
+            price,
+            userId: req.user.userId
+        });
+
+        // Validate venue exists
+        const venue = await Venue.findById(venueId);
+        if (!venue) {
+            console.log('Venue not found:', venueId);
+            return res.status(404).json({ message: 'Venue not found' });
+        }
 
         const booking = new Booking({
             venue: venueId,
@@ -102,8 +116,10 @@ router.post('/', auth, async (req, res) => {
         });
 
         const savedBooking = await booking.save();
+        console.log('Booking created successfully:', savedBooking._id);
         res.status(201).json(savedBooking);
     } catch (error) {
+        console.error('Error creating booking:', error);
         res.status(400).json({ message: error.message });
     }
 });
@@ -113,9 +129,35 @@ router.get('/my-bookings', auth, async (req, res) => {
     try {
         const bookings = await Booking.find({ user: req.user.userId })
             .populate('venue')
+            .populate('user', '-password')
             .sort({ createdAt: -1 });
+
         res.json(bookings);
     } catch (error) {
+        console.error('Error fetching user bookings:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get a single booking
+router.get('/:id', auth, async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id)
+            .populate('venue')
+            .populate('user', '-password');
+
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+        }
+
+        // Check if the user is authorized to view this booking
+        if (booking.user._id.toString() !== req.user.userId) {
+            return res.status(403).json({ message: 'Not authorized to view this booking' });
+        }
+
+        res.json(booking);
+    } catch (error) {
+        console.error('Error fetching booking:', error);
         res.status(500).json({ message: error.message });
     }
 });

@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Card, Title, Paragraph, ActivityIndicator, Text } from 'react-native-paper';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'http://192.168.1.7:5000';
 
@@ -19,8 +20,22 @@ export default function PaymentPage() {
 
     const fetchBookingDetails = async () => {
         try {
-            const response = await axios.get(`${API_URL}/bookings/${bookingId}`);
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) {
+                setError('Please login to view booking details');
+                return;
+            }
+
+            const response = await axios.get(
+                `${API_URL}/api/bookings/${bookingId}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
             setBooking(response.data);
+            console.log('Booking details:', response.data);
         } catch (err) {
             setError('Failed to fetch booking details');
             console.error(err);
@@ -32,12 +47,26 @@ export default function PaymentPage() {
     const handlePayment = async () => {
         try {
             setLoading(true);
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) {
+                setError('Please login to complete payment');
+                return;
+            }
+
             // Here you would integrate with your payment provider (e.g., Stripe)
             // For now, we'll just update the booking status
-            await axios.patch(`${API_URL}/bookings/${bookingId}/status`, {
-                status: 'confirmed',
-                paymentStatus: 'completed'
-            });
+            await axios.patch(
+                `${API_URL}/api/bookings/${bookingId}/status`,
+                {
+                    status: 'confirmed',
+                    paymentStatus: 'completed'
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
             
             // Navigate to confirmation page
             router.replace('/(main)/booking-confirmation');
@@ -94,7 +123,7 @@ export default function PaymentPage() {
                         </View>
                         <View style={styles.row}>
                             <Paragraph style={styles.label}>Price:</Paragraph>
-                            <Paragraph>${booking.price}</Paragraph>
+                            <Paragraph>₹{booking.price}</Paragraph>
                         </View>
                     </View>
                 </Card.Content>
