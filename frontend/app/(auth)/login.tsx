@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useState, useEffect } from 'react';
+import { StyleSheet, View, Animated, Keyboard, Platform, Image } from 'react-native';
 import { Text, TextInput, Button } from 'react-native-paper';
 import { Link, router } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
 const API_URL = 'http://192.168.1.7:5000';
 
@@ -12,11 +13,21 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   const handleLogin = async () => {
     try {
       setLoading(true);
       setError('');
+      Keyboard.dismiss();
 
       const response = await axios.post(`${API_URL}/api/auth/login`, {
         email,
@@ -24,13 +35,9 @@ export default function Login() {
       });
 
       if (response.data && response.data.token) {
-        // Store the token
         await AsyncStorage.setItem('userToken', response.data.token);
-        
-        // Check if user has preferences
         const userPrefs = await AsyncStorage.getItem('userPreferences');
         
-        // Navigate based on whether user has completed onboarding
         if (userPrefs) {
           router.replace('/screens/VenueMapScreen');
         } else {
@@ -47,10 +54,20 @@ export default function Login() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back!</Text>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>  
+      <Image
+        source={require('@/assets/logo.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+      <Text style={styles.title}>Welcome Back</Text>
+      <Text style={styles.subtitle}>Sign in to continue</Text>
       
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.error}>{error}</Text>
+        </View>
+      ) : null}
 
       <TextInput
         style={styles.input}
@@ -60,6 +77,25 @@ export default function Login() {
         autoCapitalize="none"
         keyboardType="email-address"
         disabled={loading}
+        mode="outlined"
+        outlineColor="#4CAF50"
+        activeOutlineColor="#1a891e"
+        theme={{ colors: { primary: '#4CAF50' } }}
+        left={<TextInput.Icon icon={() => <Ionicons icon="mail" size={20} color="#4CAF50" />} />}
+        onFocus={() => {
+          Animated.timing(fadeAnim, {
+            toValue: 1.1,
+            duration: 200,
+            useNativeDriver: true,
+          }).start();
+        }}
+        onBlur={() => {
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }).start();
+        }}
       />
 
       <TextInput
@@ -69,52 +105,124 @@ export default function Login() {
         onChangeText={setPassword}
         secureTextEntry
         disabled={loading}
+        mode="outlined"
+        outlineColor="#4CAF50"
+        activeOutlineColor="#1a891e"
+        theme={{ colors: { primary: '#4CAF50' } }}
+        left={<TextInput.Icon icon={() => <Ionicons icon="lock-closed" size={20} color="#4CAF50" />} />}
+        onFocus={() => {
+          Animated.timing(fadeAnim, {
+            toValue: 1.1,
+            duration: 200,
+            useNativeDriver: true,
+          }).start();
+        }}
+        onBlur={() => {
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }).start();
+        }}
       />
 
       <Button
         mode="contained"
         onPress={handleLogin}
         style={styles.button}
+        contentStyle={styles.buttonContent}
         loading={loading}
         disabled={loading || !email || !password}
       >
-        {loading ? 'Logging in...' : 'Login'}
+        <Text style={styles.buttonText}>
+          {loading ? 'Signing in...' : 'Sign In'}
+        </Text>
       </Button>
 
       <View style={styles.linkContainer}>
-        <Text>Don't have an account? </Text>
-        <Link href="/register">Register here</Link>
+        <Text style={styles.linkText}>Don't have an account? </Text>
+        <Link href="/register" style={styles.link}>Create one</Link>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    backgroundColor: '#fff',
     justifyContent: 'center',
+    padding: 20,
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 8,
+    textAlign: 'center',
+    color: '#1a1a1a',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 32,
     textAlign: 'center',
   },
   input: {
-    marginBottom: 15,
+    marginBottom: 16,
+    backgroundColor: '#fff',
   },
   button: {
-    marginTop: 10,
+    marginTop: 8,
+    paddingVertical: 4,
+    borderRadius: 17,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: '#1a891e',
+    borderBottomWidth: 6,
+    shadowColor: 'rgb(158, 129, 254)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  buttonContent: {
+    paddingVertical: 8,
+  },
+  buttonText: {
+    fontSize: 16,
+    color: "#94ff98",
+    fontWeight: 'bold',
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   error: {
-    color: 'red',
-    marginBottom: 10,
+    color: '#c62828',
     textAlign: 'center',
+    fontSize: 14,
   },
   linkContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  linkText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  link: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

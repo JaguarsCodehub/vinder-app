@@ -6,8 +6,10 @@ const auth = require('../middleware/auth');
 // Get user preferences - Protected route
 router.get('/preferences', auth, async (req, res) => {
     try {
+        console.log('Fetching preferences for user ID:', req.user.userId);
         const preferences = await UserPreference.findOne({ user: req.user.userId })
             .sort({ createdAt: -1 });
+        console.log('Retrieved preferences:', preferences);
         res.status(200).json({
             success: true,
             data: preferences || null
