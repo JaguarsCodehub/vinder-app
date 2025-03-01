@@ -23,7 +23,7 @@ export default function Home() {
             style={styles.button}
             contentStyle={styles.buttonContent}
           >
-            <Text style={{ fontSize: 16, color: "#94ff98", fontWeight: 'bold' }}>Login to your Vinder Account</Text>
+            <Text style={{ fontSize: 16, color: "#94ff98", fontWeight: 'bold' }}>Login to your Vinder App</Text>
           </Button>
         </Link>
         <Link href="/(auth)/register" asChild>
