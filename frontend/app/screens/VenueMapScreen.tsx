@@ -5,6 +5,8 @@ import * as Location from 'expo-location';
 import { useTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import VenueCard from '../../components/VenueCard';
+import { API_URL } from '../config';
+import { useRouter } from 'expo-router';
 
 interface Venue {
     _id: string;
@@ -35,6 +37,7 @@ const VenueMapScreen: React.FC = () => {
     const [mapTheme, setMapTheme] = useState('standard'); // Default theme
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const { colors } = useTheme();
+    const router = useRouter();
 
     const categories = [
         { id: 'all', label: 'All', icon: '🔍' },
@@ -76,13 +79,19 @@ const VenueMapScreen: React.FC = () => {
     const fetchVenues = async (location: Location.LocationObject) => {
         try {
             const response = await fetch(
-                `http://192.168.1.7:5000/api/venues/nearby?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}`
+                `${API_URL}/api/venues/nearby?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}&limit=50`
             );
             const data = await response.json();
-            console.log('Found', data.length, 'venues');
-            setVenues(data);
+            if (data.venues) {
+                console.log('Found', data.venues.length, 'venues');
+                setVenues(data.venues);
+            } else {
+                console.log('No venues found');
+                setVenues([]);
+            }
         } catch (error) {
             console.error('Error fetching venues:', error);
+            setVenues([]);
         }
     };
 
@@ -141,6 +150,12 @@ const VenueMapScreen: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            <TouchableOpacity 
+                style={styles.settingsButton}
+                onPress={() => router.push('/(main)/onboarding')}
+            >
+                <Ionicons name="settings" size={24} color={colors.text} />
+            </TouchableOpacity>
             {location && (
                 <View style={{ flex: 1 }}>
                     <ScrollView 
@@ -519,6 +534,12 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
         shadowRadius: 1.41,
+    },
+    settingsButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        zIndex: 10,
     },
 });
 

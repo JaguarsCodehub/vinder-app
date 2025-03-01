@@ -4,8 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button, Card, Title, Paragraph, ActivityIndicator, Text } from 'react-native-paper';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_URL = 'http://192.168.1.7:5000';
+import { API_URL } from '../config';
 
 export default function PaymentPage() {
     const { bookingId } = useLocalSearchParams();

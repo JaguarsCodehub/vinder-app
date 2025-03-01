@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.1.7:5000';
 
 type PreferenceOption = {
   id: string;
@@ -50,131 +48,53 @@ type Preferences = {
   budgetRange: string;
 };
 
-export default function OnboardingScreen() {
+export default function Onboarding() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [preferences, setPreferences] = useState<Preferences>({
     locationPreference: '',
     foodPreference: '',
     budgetRange: '',
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const router = useRouter();
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    checkExistingPreferences();
-  }, []);
-
-  const checkExistingPreferences = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        router.replace('/(auth)/login');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/api/preferences/preferences`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-      console.log('Checking preferences result:', result);
-      
-      if (response.ok && result.data) {
-        router.replace('/screens/VenueMapScreen');
-      }
-    } catch (error) {
-      console.error('Error checking preferences:', error);
-      setError('Failed to check preferences. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSelect = (option: PreferenceOption) => {
-    setError(''); // Clear any previous errors
-    const currentKey = steps[currentStep].key;
+  const handleSelect = async (option: PreferenceOption) => {
+    const currentStepData = steps[currentStep];
     
-    const newPreferences = {
-      ...preferences,
-      [currentKey as keyof Preferences]: option.value,
-    };
-    setPreferences(newPreferences);
+    // Update preferences
+    setPreferences(prev => ({
+      ...prev,
+      [currentStepData.key as keyof Preferences]: option.value
+    }));
 
-    // If we're not on the last step, move to next step
+    // Move to next step or submit
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
-      // Check if all preferences are filled before submitting
-      const allPreferencesFilled = ['locationPreference', 'foodPreference', 'budgetRange']
-        .every(key => newPreferences[key as keyof Preferences] !== '');
-      
-      if (allPreferencesFilled) {
-        submitPreferences();
-      } else {
-        setError('Please fill out all preferences before submitting');
-      }
-    }
-  };
-
-  const submitPreferences = async () => {
-    // Validate all preferences are filled
-    const allPreferencesFilled = ['locationPreference', 'foodPreference', 'budgetRange']
-      .every(key => preferences[key as keyof Preferences] !== '');
-    
-    if (!allPreferencesFilled) {
-      setError('Please fill out all preferences before submitting');
-      return;
-    }
-
-    try {
+      // Final step - submit preferences
       setSubmitting(true);
       setError('');
-      
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        router.replace('/(auth)/login');
-        return;
+
+      try {
+        // Remove database check
+        router.push('/(main)');
+      } catch (err) {
+        setError('Something went wrong. Please try again.');
+      } finally {
+        setSubmitting(false);
       }
-
-      console.log('Submitting preferences:', preferences);
-      
-      const response = await fetch(`${API_URL}/api/preferences/preferences`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(preferences),
-      });
-
-      const result = await response.json();
-      console.log('API Response:', result);
-
-      if (response.ok) {
-        router.replace('/screens/VenueMapScreen');
-      } else {
-        setError(result.error || 'Failed to save preferences. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error saving preferences:', error);
-      setError('Network error. Please check your connection and try again.');
-    } finally {
-      setSubmitting(false);
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196f3" />
-        <Text style={styles.loadingText}>Checking preferences...</Text>
-      </View>
-    );
-  }
+  // if (true) {
+  //   return (
+  //     <View style={styles.loadingContainer}>
+  //       <ActivityIndicator size="large" color="#2196f3" />
+  //       <Text style={styles.loadingText}>Loading...</Text>
+  //     </View>
+  //   );
+  // }
 
   const currentStepData = steps[currentStep];
 
