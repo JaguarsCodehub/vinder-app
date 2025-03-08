@@ -78,15 +78,42 @@ const VenueMapScreen: React.FC = () => {
 
     const fetchVenues = async (location: Location.LocationObject) => {
         try {
-            const response = await fetch(
-                `${API_URL}/api/venues/nearby?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}&limit=50`
-            );
+            console.log('Fetching venues with coordinates:', {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude
+            });
+            
+            const url = `${API_URL}/api/venues/nearby?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}&radius=30`;
+            console.log('Fetching from URL:', url);
+            
+            const response = await fetch(url);
             const data = await response.json();
-            if (data.venues) {
-                console.log('Found', data.venues.length, 'venues');
-                setVenues(data.venues);
+            
+            console.log('Raw API Response:', JSON.stringify(data, null, 2));
+            
+            // The backend might be returning the array directly
+            const venuesData = Array.isArray(data) ? data : data.venues || [];
+            
+            if (venuesData.length > 0) {
+                // Log the structure of the first venue to verify the format
+                console.log('First venue structure:', {
+                    id: venuesData[0]._id,
+                    name: venuesData[0].name,
+                    coordinates: venuesData[0].location?.coordinates,
+                    category: venuesData[0].category
+                });
+                
+                // Verify that all venues have the required structure
+                const validVenues = venuesData.filter((venue: any) => 
+                    venue.location?.coordinates?.length === 2 &&
+                    typeof venue.location.coordinates[0] === 'number' &&
+                    typeof venue.location.coordinates[1] === 'number'
+                );
+                
+                console.log(`Found ${validVenues.length} valid venues out of ${venuesData.length} total`);
+                setVenues(validVenues);
             } else {
-                console.log('No venues found');
+                console.log('No venues found in the response');
                 setVenues([]);
             }
         } catch (error) {

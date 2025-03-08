@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'https://vinder-app-backend.vercel.app';
+const API_URL = 'http://192.168.1.8:3000';
 
 interface TimeSlot {
     start: string;

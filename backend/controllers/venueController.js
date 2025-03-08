@@ -15,9 +15,7 @@ const testMapboxConnection = async () => {
             `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/72.8777,19.0759.json?radius=1000&limit=1&layers=poi_label&access_token=${process.env.MAPBOX_ACCESS_TOKEN}`
         );
         
-        const rawResponse = await response.text();
-        console.log('Mapbox raw response:', rawResponse);
-        const data = JSON.parse(rawResponse);
+        const data = await response.json();
         console.log('Mapbox test response:', {
             status: response.status,
             features: data.features?.length || 0
@@ -32,7 +30,7 @@ const testMapboxConnection = async () => {
 // Get venues near a location using Mapbox
 exports.getNearbyVenues = async (req, res) => {
     try {
-        const { longitude, latitude, radius = 30, limit = 20, page = 1 } = req.query;
+        const { longitude, latitude, radius = 30 } = req.query;
         
         // Test Mapbox connection first
         console.log('Testing Mapbox connection...');
@@ -55,74 +53,110 @@ exports.getNearbyVenues = async (req, res) => {
             return res.status(400).json({ message: 'Invalid coordinates' });
         }
 
-        console.log('Searching with coordinates:', { longitude, latitude, radius, limit, page });
+        console.log('Searching with coordinates:', { longitude: coords[0], latitude: coords[1], radius });
 
-        // Calculate the actual limit to fetch based on page and limit
-        const apiLimit = Math.min(parseInt(limit), 50); // Cap at 50 venues per request
+        // Convert radius from kilometers to meters
+        const radiusInMeters = parseInt(radius) * 1000;
 
-        try {
-            const mapboxUrl = `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${coords[0]},${coords[1]}.json?radius=${radius}&limit=${apiLimit}&layers=poi_label&access_token=${process.env.MAPBOX_ACCESS_TOKEN}`;
-            console.log('Fetching from Mapbox URL:', mapboxUrl);
-            
-            const response = await fetch(mapboxUrl);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Mapbox API error:', errorText);
-                throw new Error(`Mapbox API error: ${response.status}`);
+        // For larger radii, we'll use a grid-based approach to get better coverage
+        const gridSize = Math.min(Math.ceil(radiusInMeters / 20000), 4); // Max 4x4 grid
+        const latStep = (radiusInMeters / 111000) / gridSize; // Convert meters to rough degrees
+        const lngStep = (radiusInMeters / (111000 * Math.cos(coords[1] * Math.PI / 180))) / gridSize;
+
+        const searchPoints = [];
+        for (let i = -gridSize/2; i <= gridSize/2; i++) {
+            for (let j = -gridSize/2; j <= gridSize/2; j++) {
+                searchPoints.push({
+                    longitude: coords[0] + j * lngStep,
+                    latitude: coords[1] + i * latStep,
+                    radius: radiusInMeters / (gridSize * 1.5) // Overlap the circles a bit
+                });
             }
-
-            let rawResponse;
-            try {
-                rawResponse = await response.text();
-                console.log('Raw Mapbox response:', rawResponse);
-            } catch (error) {
-                console.error('Error reading response:', error);
-                throw new Error('Failed to read Mapbox response');
-            }
-
-            let data;
-            try {
-                data = JSON.parse(rawResponse);
-            } catch (error) {
-                console.error('Error parsing JSON:', error);
-                console.error('Raw response that failed to parse:', rawResponse);
-                throw new Error('Failed to parse Mapbox response as JSON');
-            }
-            
-            // Process venues more efficiently
-            const venues = (data.features || [])
-                .filter(feature => isRelevantVenue(feature))
-                .map(feature => transformMapboxFeature(feature));
-
-            const totalVenues = venues.length;
-            console.log(`Found ${totalVenues} venues`);
-
-            // Return paginated results with metadata
-            return res.json({
-                venues,
-                pagination: {
-                    page: parseInt(page),
-                    limit: apiLimit,
-                    total: totalVenues,
-                    hasMore: totalVenues === apiLimit // If we got exactly the limit, there might be more
-                }
-            });
-        } catch (error) {
-            console.error('Error fetching venues:', error);
-            return res.status(500).json({ 
-                message: 'Error fetching venues', 
-                error: error.message,
-                type: error.name
-            });
         }
-    } catch (error) {
-        console.error('Unexpected error:', error);
-        return res.status(500).json({ 
-            message: 'Unexpected error occurred', 
-            error: error.message,
-            type: error.name
+
+        // Make requests for each search point in parallel
+        const searchPromises = searchPoints.map(async point => {
+            try {
+                const response = await fetch(
+                    `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${point.longitude},${point.latitude}.json?radius=${point.radius}&limit=50&layers=poi_label&access_token=${process.env.MAPBOX_ACCESS_TOKEN}`
+                );
+
+                if (!response.ok) {
+                    console.error(`Mapbox API error for point ${point.longitude},${point.latitude}:`, await response.text());
+                    return [];
+                }
+
+                const data = await response.json();
+                return data.features || [];
+            } catch (error) {
+                console.error(`Error fetching venues for point ${point.longitude},${point.latitude}:`, error);
+                return [];
+            }
         });
+
+        const featureArrays = await Promise.all(searchPromises);
+        
+        // Combine all features, removing duplicates based on name and coordinates
+        const uniqueFeatures = new Map();
+        featureArrays.flat().forEach(feature => {
+            const key = `${feature.properties.name}-${feature.geometry.coordinates[0]}-${feature.geometry.coordinates[1]}`;
+            if (!uniqueFeatures.has(key) && isRelevantVenue(feature)) {
+                uniqueFeatures.set(key, feature);
+            }
+        });
+
+        console.log('Raw Mapbox response:', {
+            totalFeatures: uniqueFeatures.size,
+            searchPoints: searchPoints.length
+        });
+
+        // Transform features to venues
+        const venues = [];
+        for (const feature of uniqueFeatures.values()) {
+            const venue = transformMapboxFeature(feature);
+            if (venue) {
+                venues.push(venue);
+            }
+        }
+
+        // Sort venues by distance
+        venues.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        console.log(`Found ${venues.length} unique venues`);
+
+        // Save venues to database and collect their IDs
+        const venuesWithIds = [];
+        if (venues.length > 0) {
+            try {
+                for (const venue of venues) {
+                    // Try to find existing venue
+                    let existingVenue = await Venue.findOne({
+                        'location.coordinates': venue.location.coordinates,
+                        name: venue.name
+                    });
+
+                    if (existingVenue) {
+                        // Update existing venue
+                        Object.assign(existingVenue, venue);
+                        await existingVenue.save();
+                        venuesWithIds.push(existingVenue);
+                    } else {
+                        // Create new venue
+                        const newVenue = new Venue(venue);
+                        await newVenue.save();
+                        venuesWithIds.push(newVenue);
+                    }
+                }
+                console.log(`Successfully processed ${venuesWithIds.length} venues`);
+            } catch (error) {
+                console.error('Error saving venues:', error);
+            }
+        }
+        
+        res.json(venuesWithIds);
+    } catch (error) {
+        console.error('Mapbox API Error:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -347,42 +381,6 @@ exports.getVenueDetails = async (req, res) => {
         const venue = await Venue.findById(req.params.id);
         if (!venue) {
             return res.status(404).json({ message: 'Venue not found' });
-        }
-        res.json(venue);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// Add review to venue
-exports.addReview = async (req, res) => {
-    try {
-        const { rating, comment } = req.body;
-        const userId = req.user.id;
-        const venueId = req.params.id;
-
-        const venue = await Venue.findById(venueId);
-        if (!venue) {
-            return res.status(404).json({ message: 'Venue not found' });
-        }
-
-        venue.reviews.push({
-            user: userId,
-            rating,
-            comment
-        });
-
-        // Update average rating
-        const totalRating = venue.reviews.reduce((sum, review) => sum + review.rating, 0);
-        venue.rating = totalRating / venue.reviews.length;
-
-        await venue.save();
-        res.json(venue);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
         }
         res.json(venue);
     } catch (error) {
