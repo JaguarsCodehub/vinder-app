@@ -5,6 +5,8 @@ import * as Location from 'expo-location';
 import { useTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import VenueCard from '../../components/VenueCard';
+import { API_URL } from '../config';
+import { useRouter } from 'expo-router';
 
 interface Venue {
     _id: string;
@@ -35,6 +37,7 @@ const VenueMapScreen: React.FC = () => {
     const [mapTheme, setMapTheme] = useState('standard'); // Default theme
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const { colors } = useTheme();
+    const router = useRouter();
 
     const categories = [
         { id: 'all', label: 'All', icon: '🔍' },
@@ -79,10 +82,37 @@ const VenueMapScreen: React.FC = () => {
                 `http://192.168.1.5:5000/api/venues/nearby?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}`
             );
             const data = await response.json();
-            console.log('Found', data.length, 'venues');
-            setVenues(data);
+            
+            console.log('Raw API Response:', JSON.stringify(data, null, 2));
+            
+            // The backend might be returning the array directly
+            const venuesData = Array.isArray(data) ? data : data.venues || [];
+            
+            if (venuesData.length > 0) {
+                // Log the structure of the first venue to verify the format
+                console.log('First venue structure:', {
+                    id: venuesData[0]._id,
+                    name: venuesData[0].name,
+                    coordinates: venuesData[0].location?.coordinates,
+                    category: venuesData[0].category
+                });
+                
+                // Verify that all venues have the required structure
+                const validVenues = venuesData.filter((venue: any) => 
+                    venue.location?.coordinates?.length === 2 &&
+                    typeof venue.location.coordinates[0] === 'number' &&
+                    typeof venue.location.coordinates[1] === 'number'
+                );
+                
+                console.log(`Found ${validVenues.length} valid venues out of ${venuesData.length} total`);
+                setVenues(validVenues);
+            } else {
+                console.log('No venues found in the response');
+                setVenues([]);
+            }
         } catch (error) {
             console.error('Error fetching venues:', error);
+            setVenues([]);
         }
     };
 
@@ -141,6 +171,12 @@ const VenueMapScreen: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            <TouchableOpacity 
+                style={styles.settingsButton}
+                onPress={() => router.push('/(main)/onboarding')}
+            >
+                <Ionicons name="settings" size={24} color={colors.text} />
+            </TouchableOpacity>
             {location && (
                 <View style={{ flex: 1 }}>
                     <ScrollView 
@@ -519,6 +555,12 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
         shadowRadius: 1.41,
+    },
+    settingsButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        zIndex: 10,
     },
 });
 

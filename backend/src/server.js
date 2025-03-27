@@ -20,7 +20,7 @@ app.use((req, res, next) => {
 });
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/vinder')
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.log('MongoDB Connection Error:', err));
 
@@ -50,9 +50,10 @@ app.use((err, req, res, next) => {
     });
 });
 
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`API URL: http://localhost:${PORT}`);
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
 });
+
+// Export the Express API
+module.exports = app;
