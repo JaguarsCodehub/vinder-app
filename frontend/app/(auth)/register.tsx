@@ -5,7 +5,7 @@ import { Link, router } from 'expo-router';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_URL = 'http://192.168.1.7:5000';
+const API_URL = 'http://192.168.1.5:5000';
 
 const logo = require('@/assets/logo.png'); // Update the path to your logo image
 

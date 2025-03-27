@@ -5,7 +5,7 @@ import { Button, Card, Title, Paragraph, ActivityIndicator, Text } from 'react-n
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.1.7:5000';
+const API_URL = 'http://192.168.1.5:5000';
 
 export default function PaymentPage() {
     const { bookingId } = useLocalSearchParams();

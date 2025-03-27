@@ -6,7 +6,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const API_URL = 'http://192.168.1.7:5000';
+const API_URL = 'http://192.168.1.5:5000';
 
 interface Booking {
     _id: string;

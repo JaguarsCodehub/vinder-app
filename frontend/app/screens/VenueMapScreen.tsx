@@ -76,7 +76,7 @@ const VenueMapScreen: React.FC = () => {
     const fetchVenues = async (location: Location.LocationObject) => {
         try {
             const response = await fetch(
-                `http://192.168.1.7:5000/api/venues/nearby?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}`
+                `http://192.168.1.5:5000/api/venues/nearby?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}`
             );
             const data = await response.json();
             console.log('Found', data.length, 'venues');
